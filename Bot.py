@@ -16,7 +16,7 @@ def remind():
     while True:
         for reminder_time in times:
             if datetime.now().time().strftime("%H:%M") == reminder_time:
-                bot.send_message(chat_id, "Прими таблетки, дед")
+                bot.send_message(chat_id, "Напоминание")
                 time.sleep(65)
 
 
