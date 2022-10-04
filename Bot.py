@@ -5,7 +5,11 @@ import re
 from threading import Thread
 import time
 
-bot = telebot.TeleBot("5733146702:AAFhzUjBRzRbkFDTcIcm_1X98bfvqpefRBM")
+f = open("bot_token.txt")
+token = f.readline()
+f.close()
+
+bot = telebot.TeleBot(token)
 
 times = ["9:00", "15:00", "15:30", "21:00", "21:30"]
 
@@ -17,7 +21,6 @@ def remind():
         for reminder_time in times:
             if datetime.now().time().strftime("%H:%M") == reminder_time:
                 bot.send_message(chat_id, "Напоминание")
-                time.sleep(65)
 
 
 @bot.message_handler(commands=["start"])
@@ -43,6 +46,7 @@ def handle_text(message):
             ans = ""
             for index, reminder_time in enumerate(times):
                 ans += "Напоминание номер: " + str(index) + ", время напоминания: " + reminder_time + "\n"
+
             bot.send_message(chat_id, ans)
 
         elif message.text.strip() == "Удалить времена напоминания":
@@ -50,11 +54,14 @@ def handle_text(message):
 
         elif re.match(r"\d\d:\d\d", message.text.strip()) is not None and \
                 message.text.strip() == re.match(r"\d\d:\d\d", message.text.strip()).group(0):
+
             times.append(message.text.strip())
-            bot.send_message(chat_id, message)
+
+            bot.send_message(chat_id, "Добавлено: " + message.text.strip())
 
         elif re.match(r"\d+", message.text.strip()) is not None and \
                 message.text.strip() == re.match(r"\d+", message.text.strip()).group(0):
+
             del times[int(message.text.strip())]
 
             ans = "Оставшиеся времена:\n"
@@ -64,6 +71,6 @@ def handle_text(message):
 
 
 def start_bot():
-    th = Thread(target=remind(), args=())
-    th.start()
+    # th = Thread(target=remind(), args=())
+    # th.start()
     bot.polling(none_stop=True, interval=0)
