@@ -21,6 +21,7 @@ def remind():
         for reminder_time in times:
             if datetime.now().time().strftime("%H:%M") == reminder_time:
                 bot.send_message(chat_id, "Напоминание")
+        time.sleep(60)
 
 
 @bot.message_handler(commands=["start"])
@@ -71,6 +72,7 @@ def handle_text(message):
 
 
 def start_bot():
-    # th = Thread(target=remind(), args=())
-    # th.start()
-    bot.polling(none_stop=True, interval=0)
+    th = Thread(target=remind())
+    th2 = Thread(target=bot.polling(none_stop=True, interval=0))
+    th.start()
+    th2.start()
