@@ -2,6 +2,7 @@ import logging
 import asyncio
 from datetime import datetime
 import re
+import sqlite3
 
 from aiogram import Bot, Dispatcher, executor, types
 
@@ -12,21 +13,33 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=token)
 dp = Dispatcher(bot)
 
-reminders = []
-
 
 async def check_reminder():
     while True:
-        for reminder_time in reminders:
-            if datetime.now().strftime("%H:%M") == reminder_time:
-                await bot.send_message(chat_id, "Reminder")
-        await asyncio.sleep(60)
+        connection = sqlite3.connect("database.db")
+        cursor = connection.cursor()
+        cursor.execute("SELECT user_id FROM reminders")
+        users_ids = [i[0] for i in cursor.fetchall()]
+
+        for current_id in users_ids:
+            cursor.execute(f"SELECT reminder_time FROM reminders WHERE user_id = '{current_id}'")
+            reminders = cursor.fetchall()
+            for reminder_time in reminders:
+                if datetime.now().strftime("%H:%M") == reminder_time:
+                    await bot.send_message(current_id, "Reminder")
+                    await asyncio.sleep(60)
+        else:
+            await asyncio.sleep(60)
 
 
-@dp.message_handler(commands=['start'])
+@dp.message_handler(commands=['start', 'register'])
 async def send_welcome(message: types.Message):
     asyncio.create_task(check_reminder())
-    await message.reply("Hi!\nI'm EchoBot!\nPowered by aiogram.")
+    connection = sqlite3.connect("database.db")
+    cursor = connection.cursor()
+    cursor.execute('INSERT INTO users(user_id, username) VALUES(?,?)', (message.chat.id, message.from_user.username))
+    connection.commit()
+    await message.reply("whatever")
 
 
 @dp.message_handler(commands=['help'])
@@ -36,12 +49,18 @@ async def send_help(message: types.Message):
 
 @dp.message_handler(commands=['set'])
 async def set_reminder(message: types.Message):
+    connection = sqlite3.connect("database.db")
+    cursor = connection.cursor()
+
     text = message.get_args()
     if re.fullmatch(r'\d\d:\d\d', text):
-        if text in reminders:
+        cursor.execute(f"SELECT * FROM reminders WHERE user_id = '{message.chat.id}'")
+        user_reminders = [i[1] for i in cursor.fetchall()]
+        if text in user_reminders:
             await message.answer("Такое время уже есть")
         else:
-            reminders.append(text)
+            cursor.execute(f'INSERT INTO reminders VALUES(?, ?)', (message.chat.id, text))
+            connection.commit()
             await message.answer("Успешно задано")
     else:
         await message.answer("Ведите время напоминания")
@@ -49,12 +68,17 @@ async def set_reminder(message: types.Message):
 
 @dp.message_handler(commands=['delete'])
 async def delete_reminder(message: types.Message):
+    connection = sqlite3.connect("database.db")
+    cursor = connection.cursor()
     text = message.get_args()
     if re.fullmatch(r'\d\d:\d\d', text):
-        if text not in reminders:
+        cursor.execute(f"SELECT * FROM reminders WHERE user_id = '{message.chat.id}'")
+        user_reminders = [i[1] for i in cursor.fetchall()]
+        if text not in user_reminders:
             await message.answer("Такого времени нет")
         else:
-            reminders.remove(text)
+            cursor.execute(f"DELETE FROM reminders WHERE user_id =  '{message.chat.id}' and reminder_time = '{text}'")
+            connection.commit()
             await message.answer("Успешно удалено")
     else:
         await message.answer("Ведите время напоминания")
@@ -62,12 +86,16 @@ async def delete_reminder(message: types.Message):
 
 @dp.message_handler(commands=['get_all'])
 async def send_reminders(message: types.Message):
-    if len(reminders) == 0:
+    connection = sqlite3.connect("database.db")
+    cursor = connection.cursor()
+    cursor.execute(f"SELECT * FROM reminders WHERE user_id = '{message.chat.id}'")
+    user_reminders = [i[1] for i in cursor.fetchall()]
+    if len(user_reminders) == 0:
         await message.answer("Не задано ни одного напоминания")
     else:
         ans = ""
-        for i in range(len(reminders)):
-            ans = str(i) + " " + reminders[i] + "\n"
+        for i in range(len(user_reminders)):
+            ans = str(i) + " " + user_reminders[i] + "\n"
         await message.answer(ans)
 
 
