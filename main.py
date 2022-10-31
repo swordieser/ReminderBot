@@ -19,13 +19,13 @@ async def check_reminder():
         connection = sqlite3.connect("database.db")
         cursor = connection.cursor()
         cursor.execute("SELECT user_id FROM reminders")
-        users_ids = [i[0] for i in cursor.fetchall()]
+        users_ids = set([i[0] for i in cursor.fetchall()])
 
         for current_id in users_ids:
             cursor.execute(f"SELECT reminder_time FROM reminders WHERE user_id = '{current_id}'")
             reminders = cursor.fetchall()
             for reminder_time in reminders:
-                if datetime.now().strftime("%H:%M") == reminder_time:
+                if datetime.now().strftime("%H:%M") == reminder_time[0]:
                     await bot.send_message(current_id, "Reminder")
                     await asyncio.sleep(60)
         else:
@@ -37,9 +37,12 @@ async def send_welcome(message: types.Message):
     asyncio.create_task(check_reminder())
     connection = sqlite3.connect("database.db")
     cursor = connection.cursor()
-    cursor.execute('INSERT INTO users(user_id, username) VALUES(?,?)', (message.chat.id, message.from_user.username))
-    connection.commit()
-    await message.reply("whatever")
+    try:
+        cursor.execute('INSERT INTO users(user_id, username) VALUES(?,?)', (message.chat.id, message.from_user.username))
+        connection.commit()
+        await message.reply("whatever")
+    except sqlite3.IntegrityError:
+        await message.reply("Ты уже зарегистрирован")
 
 
 @dp.message_handler(commands=['help'])
@@ -95,7 +98,7 @@ async def send_reminders(message: types.Message):
     else:
         ans = ""
         for i in range(len(user_reminders)):
-            ans = str(i) + " " + user_reminders[i] + "\n"
+            ans += str(i) + " " + user_reminders[i] + "\n"
         await message.answer(ans)
 
 
